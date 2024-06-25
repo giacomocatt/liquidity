@@ -1,0 +1,180 @@
+---
+title: "Cost of Credit and Liquidity"
+output: beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+
+## Bid-Ask Spread
+
+```{r , include=FALSE, echo = FALSE}
+library("readr")
+library("tidyr")
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(plm)
+library(plyr)
+library(ivreg)
+library(broom)
+library(latex2exp)
+setwd("C:/Users/giaco/Desktop/phd/Current Projects/Liquidity/Data")
+
+data <- read_csv('data_regr_full.csv')
+data$tunrover <- data$tunrover/100
+data$iv_turnover <- data$iv_turnover/100
+data$iv_turnover_lag <- data$iv_turnover_lag/100
+vars <- c('trd_exctn_dt','quarter', 'year', 'cs', 'BA', 'rat', 'short_r', 'slope', 'opmad', 'debt_at' ,'cash_debt', 'debt_capital', 
+          'iv_BA_lag', 'rtng', 'short_r', 'opmad_lag', 'debt_at_lag', 'cash_debt_lag', 'debt_capital_lag')
+df <- drop_na(data[, names(data) %in% vars])
+data_quarterly <- split(df, list(df$quarter, df$year))
+
+regr <- function(x) {
+  model <- ivreg(cs ~ BA  + opmad + debt_at + cash_debt + debt_capital + short_r + slope + rtng|  +
+          iv_BA_lag + opmad_lag + debt_at_lag + cash_debt_lag + debt_capital_lag+ short_r 
+        + slope + rtng,
+        data =x)
+  model_tidy <- tidy(model, conf.int=T, conf.level=.95)
+  estim <- c(model_tidy$conf.low[2], model_tidy$estimate[2], model_tidy$conf.high[2])
+  estim
+}
+data_quarterly <- data_quarterly[-c(1,57)]
+pooled_model <- sapply(data_quarterly, regr)
+pooled_model_df <- t(pooled_model)
+pooled_model_df <- as.data.frame(pooled_model_df)
+pooled_model_df$quarter <- row.names(pooled_model_df)
+aux <- str_split(pooled_model_df$quarter, "20")
+for (i in 1:66) {
+  pooled_model_df$qq[i] <- aux[[i]][1]
+  pooled_model_df$year[i] <- aux[[i]][2]
+}
+pooled_model_df$year[pooled_model_df$year==''] <- '20'
+pooled_model_df$qq <- as.character(pooled_model_df$qq)
+pooled_model_df$year <- as.double(pooled_model_df$year)
+pooled_model_df <- pooled_model_df[order(pooled_model_df[,6],pooled_model_df[,5]),]
+
+coeffs_head = head(pooled_model_df, 30)
+coeffs_tail = tail(pooled_model_df, 30)
+
+polished <- pooled_model_df[!(pooled_model_df$V1 < -75 & pooled_model_df$V3 > 100),]
+```
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(
+  pooled_model_df
+#  coeffs_tail
+#  polished
+   ) + 
+  geom_point(aes(fct_inorder(quarter), V2)) + 
+  geom_errorbar(aes(x = quarter, ymin = V1, ymax = V3)) + 
+  geom_hline(yintercept = 0, linetype = 'dashed', col='red') +
+  xlab(TeX('Quarter')) + ylab(TeX('$\\beta$')) + coord_cartesian(ylim=c(-75,100))  +
+  theme(axis.text.x = element_text(size=10, angle=45), axis.text.y = element_text(size=10))
+
+```
+
+## Turnover
+
+```{r , include=FALSE, echo = FALSE}
+vars <- c('trd_exctn_dt', 'quarter', 'year','cs', 'turnover1', 'rat', 'short_r', 'slope', 'opmad', 'debt_at' ,'cash_debt', 'debt_capital', 
+          'iv_turn1_lag', 'rtng', 'short_r', 'opmad_lag', 'debt_at_lag', 'cash_debt_lag', 'debt_capital_lag')
+df <- drop_na(data[, names(data) %in% vars])
+data_quarterly <- split(df, list(df$quarter, df$year))
+regr <- function(x) {
+  model <- ivreg(cs ~ turnover1  + opmad + debt_at + cash_debt + debt_capital + short_r + slope + rtng|  +
+          iv_turn1_lag + opmad_lag + debt_at_lag + cash_debt_lag + debt_capital_lag+ short_r 
+        + slope + rtng,
+        data =x)
+  model_tidy <- tidy(model, conf.int=T, conf.level=.95)
+  estim <- c(model_tidy$conf.low[2], model_tidy$estimate[2], model_tidy$conf.high[2])
+  estim
+}
+data_quarterly <- data_quarterly[-c(1,57)]
+pooled_model <- sapply(data_quarterly, regr)
+pooled_model_df <- t(pooled_model)
+pooled_model_df <- as.data.frame(pooled_model_df)
+pooled_model_df$quarter <- row.names(pooled_model_df)
+aux <- str_split(pooled_model_df$quarter, "20")
+for (i in 1:66) {
+  pooled_model_df$qq[i] <- aux[[i]][1]
+  pooled_model_df$year[i] <- aux[[i]][2]
+}
+pooled_model_df$year[pooled_model_df$year==''] <- '20'
+pooled_model_df$qq <- as.character(pooled_model_df$qq)
+pooled_model_df$year <- as.double(pooled_model_df$year)
+pooled_model_df <- pooled_model_df[order(pooled_model_df[,6],pooled_model_df[,5]),]
+
+coeffs_head = head(pooled_model_df, 30)
+coeffs_tail = tail(pooled_model_df, 30)
+
+polished <- pooled_model_df[!(pooled_model_df$V1 < -50 & pooled_model_df$V3 > 100),]
+```
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(
+  pooled_model_df
+#  coeffs_tail
+#  polished
+   ) + 
+  geom_point(aes(fct_inorder(quarter), V2)) + 
+  geom_errorbar(aes(x = quarter, ymin = V1, ymax = V3)) + 
+  geom_hline(yintercept = 0, linetype = 'dashed', col='red') +
+  xlab(TeX('Quarter')) + ylab(TeX('$\\beta$')) + coord_cartesian(ylim=c(-50,100))  +
+  theme(axis.text.x = element_text(size=10, angle=45), axis.text.y = element_text(size=10))
+
+```
+
+## Turnover alternative
+
+```{r , include=FALSE, echo = FALSE}
+vars <- c('trd_exctn_dt', 'quarter', 'year','cs', 'tunrover', 'rat', 'short_r', 'slope', 'opmad', 'debt_at' ,'cash_debt', 'debt_capital', 
+          'iv_turnover_lag', 'rtng', 'short_r', 'opmad_lag', 'debt_at_lag', 'cash_debt_lag', 'debt_capital_lag')
+df <- drop_na(data[, names(data) %in% vars])
+data_quarterly <- split(df, list(df$quarter, df$year))
+regr <- function(x) {
+  model <- ivreg(cs ~ tunrover  + opmad + debt_at + cash_debt + debt_capital + short_r + slope + rtng|  +
+          iv_turnover_lag + opmad_lag + debt_at_lag + cash_debt_lag + debt_capital_lag+ short_r 
+        + slope + rtng,
+        data =x)
+  model_tidy <- tidy(model, conf.int=T, conf.level=.95)
+  estim <- c(model_tidy$conf.low[2], model_tidy$estimate[2], model_tidy$conf.high[2])
+  estim
+}
+data_quarterly <- data_quarterly[-c(1,57)]
+pooled_model <- sapply(data_quarterly, regr)
+pooled_model_df <- t(pooled_model)
+pooled_model_df <- as.data.frame(pooled_model_df)
+pooled_model_df$quarter <- row.names(pooled_model_df)
+aux <- str_split(pooled_model_df$quarter, "20")
+for (i in 1:66) {
+  pooled_model_df$qq[i] <- aux[[i]][1]
+  pooled_model_df$year[i] <- aux[[i]][2]
+}
+pooled_model_df$year[pooled_model_df$year==''] <- '20'
+pooled_model_df$qq <- as.character(pooled_model_df$qq)
+pooled_model_df$year <- as.double(pooled_model_df$year)
+pooled_model_df <- pooled_model_df[order(pooled_model_df[,6],pooled_model_df[,5]),]
+
+coeffs_head = head(pooled_model_df, 30)
+coeffs_tail = tail(pooled_model_df, 30)
+
+polished <- pooled_model_df[!(pooled_model_df$V1 < -50 & pooled_model_df$V3 > 100),]
+```
+
+```{r, include=TRUE, echo=FALSE}
+ggplot(
+  pooled_model_df
+#  coeffs_tail
+#  polished
+   ) + 
+  geom_point(aes(fct_inorder(quarter), V2)) + 
+  geom_errorbar(aes(x = quarter, ymin = V1, ymax = V3)) + 
+  geom_hline(yintercept = 0, linetype = 'dashed', col='red') +
+  xlab(TeX('Quarter')) + ylab(TeX('$\\beta$')) + coord_cartesian(ylim=c(-50,100)) +
+  theme(axis.text.x = element_text(size=10, angle=45), axis.text.y = element_text(size=10))
+
+```
